@@ -4,7 +4,7 @@
  * (c) Copyright 1996 - 2001 Gary Henderson (gary.henderson@ntlworld.com) and
  *                           Jerremy Koot (jkoot@snes9x.com)
  *
- * Super FX C emulator code 
+ * Super FX C emulator code
  * (c) Copyright 1997 - 1999 Ivar (ivar@snes9x.com) and
  *                           Gary Henderson.
  * Super FX assembler emulator code (c) Copyright 1998 zsKnight and _Demo_.
@@ -40,11 +40,6 @@
  */
 #include <string.h>
 #include <ctype.h>
-
-#ifdef __linux
-//#include <unistd.h>
-#endif
-
 #include "snes9x.h"
 #include "memmap.h"
 #include "cpuexec.h"
@@ -55,22 +50,12 @@
 #include "sa1.h"
 #include "srtc.h"
 #include "sdd1.h"
-
-#ifndef ZSNES_FX
 #include "fxemu.h"
+
 extern struct FxInit_s SuperFX;
-#else
-START_EXTERN_C
-extern uint8 *SFXPlotTable;
-END_EXTERN_C
-#endif
-
 static uint8 bytes0x2000 [0x2000];
-
 extern bool8  ROMAPUEnabled;
-
 extern char *rom_filename;
-extern bool8 LoadZip(const char* , int32 *, int32 *);
 
 bool8_32 CMemory::AllASCII (uint8 *b, int size)
 {
@@ -175,11 +160,11 @@ bool8_32 CMemory::Init ()
     IPPU.TileCache [TILE_2BIT] = (uint8 *) malloc (MAX_2BIT_TILES * 128);
     IPPU.TileCache [TILE_4BIT] = (uint8 *) malloc (MAX_4BIT_TILES * 128);
     IPPU.TileCache [TILE_8BIT] = (uint8 *) malloc (MAX_8BIT_TILES * 128);
-    
+
     IPPU.TileCached [TILE_2BIT] = (uint8 *) malloc (MAX_2BIT_TILES);
     IPPU.TileCached [TILE_4BIT] = (uint8 *) malloc (MAX_4BIT_TILES);
     IPPU.TileCached [TILE_8BIT] = (uint8 *) malloc (MAX_8BIT_TILES);
-    
+
     if (!RAM || !SRAM || !VRAM || !ROM ||
         !IPPU.TileCache [TILE_2BIT] || !IPPU.TileCache [TILE_4BIT] ||
 	!IPPU.TileCache [TILE_8BIT] || !IPPU.TileCached [TILE_2BIT] ||
@@ -216,7 +201,7 @@ bool8_32 CMemory::Init ()
     ZeroMemory (IPPU.TileCached [TILE_2BIT], MAX_2BIT_TILES);
     ZeroMemory (IPPU.TileCached [TILE_4BIT], MAX_4BIT_TILES);
     ZeroMemory (IPPU.TileCached [TILE_8BIT], MAX_8BIT_TILES);
-    
+
     SDD1Data = NULL;
     SDD1Index = NULL;
 
@@ -306,7 +291,7 @@ int checkzip( char * fn  )
         ( (fn[cnt-2] == 'i') || (fn[cnt-2] == 'I') ) &&
         ( (fn[cnt-3] == 'z') || (fn[cnt-3] == 'Z') )    ){
         return true;
-        
+
     }
     return false;
 }
@@ -315,10 +300,6 @@ int checkzip( char * fn  )
 /* LoadROM()                                                                                  */
 /* This function loads a Snes-Backup image                                                    */
 /**********************************************************************************************/
-#ifdef _SNESPPC
-#pragma warning(disable : 4101)
-#pragma warning(disable : 4700)
-#endif
 bool8_32 CMemory::LoadROM (const char *filename)
 {
     unsigned long FileSize = 0;
@@ -341,32 +322,9 @@ bool8_32 CMemory::LoadROM (const char *filename)
 
     CalculatedSize = 0;
 again:
-#ifndef _SNESPPC
-    _splitpath (filename, drive, dir, name, ext);
-    _makepath (fname, drive, dir, name, ext);
-#else
 	strcpy(fname, filename);
-//	strupr(fname);
-#endif
-
-#ifdef __WIN32__
-    memmove (&ext [0], &ext[1], 4);
-#endif
-
     int32 TotalFileSize = 0;
 
-#ifdef UNZIP_SUPPORT
-
-    if( checkzip( fname ) )
-    {
-    	if (!LoadZip (fname, &TotalFileSize, &HeaderCount))
-    	    return (FALSE);
-
-    	strcpy (ROMFilename, fname);
-    }
-    else
-#endif
-    {
 	if ((ROMFile = OPEN_STREAM (fname, "rb")) == NULL)
 	    return (FALSE);
 
@@ -378,285 +336,253 @@ again:
 
 	do
 	{
-	    FileSize = READ_STREAM (ptr, MAX_ROM_SIZE + 0x200 - (ptr - ROM), ROMFile);
-	    CLOSE_STREAM (ROMFile);
-	    int calc_size = (FileSize / 0x2000) * 0x2000;
+		FileSize = READ_STREAM (ptr, MAX_ROM_SIZE + 0x200 - (ptr - ROM), ROMFile);
+		CLOSE_STREAM (ROMFile);
+		int calc_size = (FileSize / 0x2000) * 0x2000;
 
-	    if ((FileSize - calc_size == 512 && !Settings.ForceNoHeader) ||
-		Settings.ForceHeader)
-	    {
-		memmove (ptr, ptr + 512, calc_size);
-		HeaderCount++;
-		FileSize -= 512;
-	    }
-	    ptr += FileSize;
-	    TotalFileSize += FileSize;
+		if ((FileSize - calc_size == 512 && !Settings.ForceNoHeader) ||
+			Settings.ForceHeader)
+		{
+			memmove (ptr, ptr + 512, calc_size);
+			HeaderCount++;
+			FileSize -= 512;
+		}
+		ptr += FileSize;
+		TotalFileSize += FileSize;
 
-	    int len;
-	    if (ptr - ROM < MAX_ROM_SIZE + 0x200 &&
-		(isdigit (ext [0]) && ext [1] == 0 && ext [0] < '9'))
-	    {
-		more = TRUE;
-		ext [0]++;
-#ifdef __WIN32__
-                memmove (&ext [1], &ext [0], 4);
-                ext [0] = '.';
-#endif
-#ifndef _SNESPPC
-		_makepath (fname, drive, dir, name, ext);
-#endif
+		int len;
+		if (ptr - ROM < MAX_ROM_SIZE + 0x200 &&
+			(isdigit (ext [0]) && ext [1] == 0 && ext [0] < '9'))
+		{
+			more = TRUE;
+			ext [0]++;
 		}
-	    else
-	    if (ptr - ROM < MAX_ROM_SIZE + 0x200 &&
-		(((len = strlen (name)) == 7 || len == 8) &&
-		 strncasecmp (name, "sf", 2) == 0 &&
-		 isdigit (name [2]) && isdigit (name [3]) && isdigit (name [4]) &&
-		 isdigit (name [5]) && isalpha (name [len - 1])))
-	    {
-		more = TRUE;
-		name [len - 1]++;
-#ifdef __WIN32__
-                memmove (&ext [1], &ext [0], 4);
-                ext [0] = '.';
-#endif
-#ifndef _SNESPPC
-		_makepath (fname, drive, dir, name, ext);
-#endif
+		else
+			if (ptr - ROM < MAX_ROM_SIZE + 0x200 &&
+				(((len = strlen (name)) == 7 || len == 8) &&
+					strncasecmp (name, "sf", 2) == 0 &&
+						isdigit (name [2]) && isdigit (name [3]) && isdigit (name [4]) &&
+							isdigit (name [5]) && isalpha (name [len - 1])))
+		{
+			more = TRUE;
+			name [len - 1]++;
 		}
-	    else
-		more = FALSE;
+		else
+			more = FALSE;
 	} while (more && (ROMFile = OPEN_STREAM (fname, "rb")) != NULL);
-    }
 
-    if (HeaderCount == 0)
-	S9xMessage (S9X_INFO, S9X_HEADERS_INFO, "No ROM file header found.");
-    else
-    {
-	if (HeaderCount == 1)
-	    S9xMessage (S9X_INFO, S9X_HEADERS_INFO,
-			"Found ROM file header (and ignored it).");
+	if (HeaderCount == 0)
+		S9xMessage (S9X_INFO, S9X_HEADERS_INFO, "No ROM file header found.");
 	else
-	    S9xMessage (S9X_INFO, S9X_HEADERS_INFO,
-			"Found multiple ROM file headers (and ignored them).");
-    }
-
-    CheckForIPSPatch (filename, HeaderCount != 0, TotalFileSize);
-    int orig_hi_score, orig_lo_score;
-    int hi_score, lo_score;
-
-    orig_hi_score = hi_score = ScoreHiROM (FALSE);
-    orig_lo_score = lo_score = ScoreLoROM (FALSE);
-    
-    if (HeaderCount == 0 && !Settings.ForceNoHeader &&
-	((hi_score > lo_score && ScoreHiROM (TRUE) > hi_score) ||
-	 (hi_score <= lo_score && ScoreLoROM (TRUE) > lo_score)))
-    {
-	memmove (Memory.ROM, Memory.ROM + 512, TotalFileSize - 512);
-	TotalFileSize -= 512;
-	S9xMessage (S9X_INFO, S9X_HEADER_WARNING, 
-		    "Try specifying the -nhd command line option if the game doesn't work\n");
-    }
-
-    CalculatedSize = (TotalFileSize / 0x2000) * 0x2000;
-    ZeroMemory (ROM + CalculatedSize, MAX_ROM_SIZE - CalculatedSize);
-
-    // Check for cherryroms.com DAIKAIJYUMONOGATARI2
-
-    if (CalculatedSize == 0x500000 && 
-	strncmp ((const char *)&ROM [0x40ffc0], "DAIKAIJYUMONOGATARI2", 20) == 0 &&
-	strncmp ((const char *)&ROM [0x40ffb0], "18AE6J", 6) == 0 &&
-	memcmp (&ROM[0x40ffb0], &ROM [0xffb0], 0x30))
-    {
-	memmove (&ROM[0x100000], ROM, 0x500000);
-	memmove (ROM, &ROM[0x500000], 0x100000);
-    }
-
-    Interleaved = Settings.ForceInterleaved || Settings.ForceInterleaved2;
-    if (Settings.ForceLoROM || (!Settings.ForceHiROM && lo_score >= hi_score))
-    {
-	LoROM = TRUE;
-	HiROM = FALSE;
-
-	// Ignore map type byte if not 0x2x or 0x3x
-	if ((ROM [0x7fd5] & 0xf0) == 0x20 || (ROM [0x7fd5] & 0xf0) == 0x30)
 	{
-	    switch (ROM [0x7fd5] & 0xf)
-	    {
-	    case 1:
-		if (strncmp ((char *) &ROM [0x7fc0], "TREASURE HUNTER G", 17) != 0)
-		    Interleaved = TRUE;
-		break;
-	    case 2:
-#if 0
-		if (!Settings.ForceLoROM &&
-		    strncmp ((char *) &ROM [0x7fc0], "SUPER FORMATION SOCCE", 21) != 0 &&
-		    strncmp ((char *) &ROM [0x7fc0], "Star Ocean", 10) != 0)
+		if (HeaderCount == 1)
+			S9xMessage (S9X_INFO, S9X_HEADERS_INFO,
+		"Found ROM file header (and ignored it).");
+		else
+			S9xMessage (S9X_INFO, S9X_HEADERS_INFO,
+		"Found multiple ROM file headers (and ignored them).");
+	}
+
+	CheckForIPSPatch (filename, HeaderCount != 0, TotalFileSize);
+	int orig_hi_score, orig_lo_score;
+	int hi_score, lo_score;
+
+	orig_hi_score = hi_score = ScoreHiROM (FALSE);
+	orig_lo_score = lo_score = ScoreLoROM (FALSE);
+
+	if (HeaderCount == 0 && !Settings.ForceNoHeader &&
+		((hi_score > lo_score && ScoreHiROM (TRUE) > hi_score) ||
+			(hi_score <= lo_score && ScoreLoROM (TRUE) > lo_score)))
+	{
+		memmove (Memory.ROM, Memory.ROM + 512, TotalFileSize - 512);
+		TotalFileSize -= 512;
+		S9xMessage (S9X_INFO, S9X_HEADER_WARNING,
+		"Try specifying the -nhd command line option if the game doesn't work\n");
+	}
+
+	CalculatedSize = (TotalFileSize / 0x2000) * 0x2000;
+	ZeroMemory (ROM + CalculatedSize, MAX_ROM_SIZE - CalculatedSize);
+
+	// Check for cherryroms.com DAIKAIJYUMONOGATARI2
+
+	if (CalculatedSize == 0x500000 &&
+		strncmp ((const char *)&ROM [0x40ffc0], "DAIKAIJYUMONOGATARI2", 20) == 0 &&
+			strncmp ((const char *)&ROM [0x40ffb0], "18AE6J", 6) == 0 &&
+				memcmp (&ROM[0x40ffb0], &ROM [0xffb0], 0x30))
+	{
+		memmove (&ROM[0x100000], ROM, 0x500000);
+		memmove (ROM, &ROM[0x500000], 0x100000);
+	}
+
+	Interleaved = Settings.ForceInterleaved || Settings.ForceInterleaved2;
+	if (Settings.ForceLoROM || (!Settings.ForceHiROM && lo_score >= hi_score))
+	{
+		LoROM = TRUE;
+		HiROM = FALSE;
+
+		// Ignore map type byte if not 0x2x or 0x3x
+		if ((ROM [0x7fd5] & 0xf0) == 0x20 || (ROM [0x7fd5] & 0xf0) == 0x30)
 		{
-		    LoROM = FALSE;
-		    HiROM = TRUE;
+			switch (ROM [0x7fd5] & 0xf)
+			{
+				case 1:
+				if (strncmp ((char *) &ROM [0x7fc0], "TREASURE HUNTER G", 17) != 0)
+					Interleaved = TRUE;
+				break;
+				case 2:
+				break;
+				case 5:
+				Interleaved = TRUE;
+				Tales = TRUE;
+				break;
+			}
 		}
-#endif
-		break;
-	    case 5:
-		Interleaved = TRUE;
-		Tales = TRUE;
-		break;
-	    }
-	}
-    }
-    else
-    {
-	if ((ROM [0xffd5] & 0xf0) == 0x20 || (ROM [0xffd5] & 0xf0) == 0x30)
-	{
-	    switch (ROM [0xffd5] & 0xf)
-	    {
-	    case 0:
-	    case 3:
-		Interleaved = TRUE;
-		break;
-	    }
-	}
-	LoROM = FALSE;
-	HiROM = TRUE;
-    }
-
-    // More 
-    if (!Settings.ForceHiROM && !Settings.ForceLoROM &&
-	!Settings.ForceInterleaved && !Settings.ForceInterleaved2 &&
-	!Settings.ForceNotInterleaved && !Settings.ForcePAL &&
-	!Settings.ForceSuperFX && !Settings.ForceDSP1 &&
-	!Settings.ForceSA1 && !Settings.ForceC4 &&
-	!Settings.ForceSDD1)
-    {
-	if (strncmp ((char *) &ROM [0x7fc0], "YUYU NO QUIZ DE GO!GO!", 22) == 0)
-	{
-	    LoROM = TRUE;
-	    HiROM = FALSE;
-	    Interleaved = FALSE;
-	}
-	else 
-	if (strncmp ((char *) &ROM [0x7fc0], "SP MOMOTAROU DENTETSU2", 22) == 0)
-	{
-	    LoROM = TRUE;
-	    HiROM = FALSE;
-	    Interleaved = FALSE;
-	}
-	else 
-	if (CalculatedSize == 0x100000 && 
-	    strncmp ((char *) &ROM [0xffc0], "WWF SUPER WRESTLEMANIA", 22) == 0)
-	{
-	    int cvcount;
-
-	    memmove (&ROM[0x100000] , ROM, 0x100000);
-	    for (cvcount = 0; cvcount < 16; cvcount++)
-	    {
-		memmove (&ROM[0x8000 * cvcount], &ROM[0x10000 * cvcount + 0x100000 + 0x8000], 0x8000);
-		memmove (&ROM[0x8000 * cvcount + 0x80000], &ROM[0x10000 * cvcount + 0x100000], 0x8000);
-	    }
-	    LoROM = TRUE;
-	    HiROM = FALSE;
-	    ZeroMemory (ROM + CalculatedSize, MAX_ROM_SIZE - CalculatedSize);
-	}
-    }
-
-    if (!Settings.ForceNotInterleaved && Interleaved)
-    {
-	CPU.TriedInterleavedMode2 = TRUE;
-	S9xMessage (S9X_INFO, S9X_ROM_INTERLEAVED_INFO,
-		    "ROM image is in interleaved format - converting...");
-
-	int nblocks = CalculatedSize >> 16;
-#if 0
-	int step = 64;
-
-	while (nblocks <= step)
-	    step >>= 1;
-	    
-	nblocks = step;
-#endif
-	uint8 blocks [256];
-
-	if (Tales)
-	{
-	    nblocks = 0x60;
-	    for (i = 0; i < 0x40; i += 2)
-	    {
-		blocks [i + 0] = (i >> 1) + 0x20;
-		blocks [i + 1] = (i >> 1) + 0x00;
-	    }
-	    for (i = 0; i < 0x80; i += 2)
-	    {
-		blocks [i + 0x40] = (i >> 1) + 0x80;
-		blocks [i + 0x41] = (i >> 1) + 0x40;
-	    }
-	    LoROM = FALSE;
-	    HiROM = TRUE;
-	}
-	else
-	if (Settings.ForceInterleaved2)
-	{
-	    for (i = 0; i < nblocks * 2; i++)
-	    {
-		blocks [i] = (i & ~0x1e) | ((i & 2) << 2) | ((i & 4) << 2) |
-			     ((i & 8) >> 2) | ((i & 16) >> 2);
-	    }
 	}
 	else
 	{
-	    bool8_32 t = LoROM;
-
-	    LoROM = HiROM;
-	    HiROM = t;
-
-	    for (i = 0; i < nblocks; i++)
-	    {
-		blocks [i * 2] = i + nblocks;
-		blocks [i * 2 + 1] = i;
-	    }
-	}
-
-	uint8 *tmp = (uint8 *) malloc (0x8000);
-	if (tmp)
-	{
-	    for (i = 0; i < nblocks * 2; i++)
-	    {
-		for (int j = i; j < nblocks * 2; j++)
+		if ((ROM [0xffd5] & 0xf0) == 0x20 || (ROM [0xffd5] & 0xf0) == 0x30)
 		{
-		    if (blocks [j] == i)
-		    {
-			memmove (tmp, &ROM [blocks [j] * 0x8000], 0x8000);
-			memmove (&ROM [blocks [j] * 0x8000], 
-				 &ROM [blocks [i] * 0x8000], 0x8000);
-			memmove (&ROM [blocks [i] * 0x8000], tmp, 0x8000);
-			uint8 b = blocks [j];
-			blocks [j] = blocks [i];
-			blocks [i] = b;
-			break;
-		    }
+			switch (ROM [0xffd5] & 0xf)
+			{
+				case 0:
+				case 3:
+				Interleaved = TRUE;
+				break;
+			}
 		}
-	    }
-	    free ((char *) tmp);
+		LoROM = FALSE;
+		HiROM = TRUE;
 	}
 
-	hi_score = ScoreHiROM (FALSE);
-	lo_score = ScoreLoROM (FALSE);
-
-	if ((HiROM &&
-	     (lo_score >= hi_score || hi_score < 0)) ||
-	    (LoROM && 
-	     (hi_score > lo_score || lo_score < 0)))
+	// More
+	if (!Settings.ForceHiROM && !Settings.ForceLoROM &&
+		!Settings.ForceInterleaved && !Settings.ForceInterleaved2 &&
+			!Settings.ForceNotInterleaved && !Settings.ForcePAL &&
+				!Settings.ForceSuperFX && !Settings.ForceDSP1 &&
+					!Settings.ForceSA1 && !Settings.ForceC4 &&
+						!Settings.ForceSDD1)
 	{
-	    if (retry_count == 0)
-	    {
-		S9xMessage (S9X_INFO, S9X_ROM_CONFUSING_FORMAT_INFO,
-			    "ROM lied about its type! Trying again.");
-		Settings.ForceNotInterleaved = TRUE;
-		Settings.ForceInterleaved = FALSE;
-		retry_count++;
-		goto again;
-	    }
+		if (strncmp ((char *) &ROM [0x7fc0], "YUYU NO QUIZ DE GO!GO!", 22) == 0)
+		{
+			LoROM = TRUE;
+			HiROM = FALSE;
+			Interleaved = FALSE;
+		}
+		else
+			if (strncmp ((char *) &ROM [0x7fc0], "SP MOMOTAROU DENTETSU2", 22) == 0)
+		{
+			LoROM = TRUE;
+			HiROM = FALSE;
+			Interleaved = FALSE;
+		}
+		else
+			if (CalculatedSize == 0x100000 &&
+				strncmp ((char *) &ROM [0xffc0], "WWF SUPER WRESTLEMANIA", 22) == 0)
+		{
+			int cvcount;
+
+			memmove (&ROM[0x100000] , ROM, 0x100000);
+			for (cvcount = 0; cvcount < 16; cvcount++)
+			{
+				memmove (&ROM[0x8000 * cvcount], &ROM[0x10000 * cvcount + 0x100000 + 0x8000], 0x8000);
+				memmove (&ROM[0x8000 * cvcount + 0x80000], &ROM[0x10000 * cvcount + 0x100000], 0x8000);
+			}
+			LoROM = TRUE;
+			HiROM = FALSE;
+			ZeroMemory (ROM + CalculatedSize, MAX_ROM_SIZE - CalculatedSize);
+		}
 	}
-    }
+
+	if (!Settings.ForceNotInterleaved && Interleaved)
+	{
+		CPU.TriedInterleavedMode2 = TRUE;
+		S9xMessage (S9X_INFO, S9X_ROM_INTERLEAVED_INFO,
+		"ROM image is in interleaved format - converting...");
+
+		int nblocks = CalculatedSize >> 16;
+		uint8 blocks [256];
+
+		if (Tales)
+		{
+			nblocks = 0x60;
+			for (i = 0; i < 0x40; i += 2)
+			{
+				blocks [i + 0] = (i >> 1) + 0x20;
+				blocks [i + 1] = (i >> 1) + 0x00;
+			}
+			for (i = 0; i < 0x80; i += 2)
+			{
+				blocks [i + 0x40] = (i >> 1) + 0x80;
+				blocks [i + 0x41] = (i >> 1) + 0x40;
+			}
+			LoROM = FALSE;
+			HiROM = TRUE;
+		}
+		else
+			if (Settings.ForceInterleaved2)
+		{
+			for (i = 0; i < nblocks * 2; i++)
+			{
+				blocks [i] = (i & ~0x1e) | ((i & 2) << 2) | ((i & 4) << 2) |
+					((i & 8) >> 2) | ((i & 16) >> 2);
+			}
+		}
+		else
+		{
+			bool8_32 t = LoROM;
+
+			LoROM = HiROM;
+			HiROM = t;
+
+			for (i = 0; i < nblocks; i++)
+			{
+				blocks [i * 2] = i + nblocks;
+				blocks [i * 2 + 1] = i;
+			}
+		}
+
+		uint8 *tmp = (uint8 *) malloc (0x8000);
+		if (tmp)
+		{
+			for (i = 0; i < nblocks * 2; i++)
+			{
+				for (int j = i; j < nblocks * 2; j++)
+				{
+					if (blocks [j] == i)
+					{
+						memmove (tmp, &ROM [blocks [j] * 0x8000], 0x8000);
+						memmove (&ROM [blocks [j] * 0x8000],
+						&ROM [blocks [i] * 0x8000], 0x8000);
+						memmove (&ROM [blocks [i] * 0x8000], tmp, 0x8000);
+						uint8 b = blocks [j];
+						blocks [j] = blocks [i];
+						blocks [i] = b;
+						break;
+					}
+				}
+			}
+			free ((char *) tmp);
+		}
+
+		hi_score = ScoreHiROM (FALSE);
+		lo_score = ScoreLoROM (FALSE);
+
+		if ((HiROM &&
+			(lo_score >= hi_score || hi_score < 0)) ||
+				(LoROM &&
+					(hi_score > lo_score || lo_score < 0)))
+		{
+			if (retry_count == 0)
+			{
+				S9xMessage (S9X_INFO, S9X_ROM_CONFUSING_FORMAT_INFO,
+				"ROM lied about its type! Trying again.");
+				Settings.ForceNotInterleaved = TRUE;
+				Settings.ForceInterleaved = FALSE;
+				retry_count++;
+				goto again;
+			}
+		}
+	}
     FreeSDD1Data ();
     InitROM (Tales);
 	
@@ -701,7 +627,7 @@ void S9xDeinterleaveMode2 ()
 		if (blocks [j] == i)
 		{
 		    memmove (tmp, &Memory.ROM [blocks [j] * 0x8000], 0x8000);
-		    memmove (&Memory.ROM [blocks [j] * 0x8000], 
+		    memmove (&Memory.ROM [blocks [j] * 0x8000],
 			     &Memory.ROM [blocks [i] * 0x8000], 0x8000);
 		    memmove (&Memory.ROM [blocks [i] * 0x8000], tmp, 0x8000);
 		    uint8 b = blocks [j];
@@ -766,7 +692,7 @@ void CMemory::InitROM (bool8_32 Interleaved)
 	else
 	if ((ROMSpeed & ~0x10) == 0x25)
 	    TalesROMMap (Interleaved);
-	else 
+	else
 	if ((ROMSpeed & ~0x10) == 0x22 &&
 	    strncmp (ROMName, "Super Street Fighter", 20) != 0)
 	{
@@ -827,7 +753,7 @@ void CMemory::InitROM (bool8_32 Interleaved)
 	}
 	else
 	if (Settings.ForceSA1 ||
-	    (!Settings.ForceNoSA1 && (ROMSpeed & ~0x10) == 0x23 && 
+	    (!Settings.ForceNoSA1 && (ROMSpeed & ~0x10) == 0x23 &&
 	     (ROMType & 0xf) > 3 && (ROMType & 0xf0) == 0x30))
 	{
 	    Settings.SA1 = TRUE;
@@ -869,7 +795,7 @@ void CMemory::InitROM (bool8_32 Interleaved)
 	    Settings.MouseMaster = FALSE;
 	    Settings.SuperScopeMaster = FALSE;
 	    Settings.DSP1Master = FALSE;
- 	    SufamiTurboLoROMMap(); 
+ 	    SufamiTurboLoROMMap();
 	    Memory.SRAMSize = 3;
 	}
 	else
@@ -905,7 +831,7 @@ void CMemory::InitROM (bool8_32 Interleaved)
     if (remainder)
     {
 	//for Tengai makyou
-	if (CalculatedSize == 0x500000 && Memory.HiROM && 
+	if (CalculatedSize == 0x500000 && Memory.HiROM &&
 	    strncmp ((const char *)&ROM[0xffb0], "18AZ", 4) == 0 &&
 	    !memcmp(&ROM[0xffd5], "\x3a\xf9\x0d\x03\x00\x33\x00", 7))
 	    sum1 += sum2;
@@ -927,7 +853,7 @@ void CMemory::InitROM (bool8_32 Interleaved)
 	Settings.PAL = ROM [0xffd9] >= 2;
     else
 	Settings.PAL = ROM [0x7fd9] >= 2;
-    
+
     if (Settings.PAL)
     {
 	Settings.FrameTime = Settings.FrameTimePAL;
@@ -996,7 +922,7 @@ bool8_32 CMemory::LoadSRAM (const char *filename)
 
     if (size > 0x20000)
 	size = 0x20000;
-    
+
     if (size)
     {
 	FILE *file;
@@ -1181,8 +1107,8 @@ void CMemory::LoROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1256,7 +1182,7 @@ void CMemory::HiROMMap ()
 	    Map [c + 6] = Map [c + 0x806] = (uint8 *) MAP_NONE;
 	    Map [c + 7] = Map [c + 0x807] = (uint8 *) MAP_NONE;
 	}
-	    
+	
 	for (i = c + 8; i < c + 16; i++)
 	{
 	    Map [i] = Map [i + 0x800] = &ROM [(c << 12) % CalculatedSize];
@@ -1266,8 +1192,8 @@ void CMemory::HiROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1341,12 +1267,12 @@ void CMemory::TalesROMMap (bool8_32 Interleaved)
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
-    
+
     // Banks 30->3f and b0->bf, address ranges 6000->7ffff is S-RAM.
     for (c = 0; c < 16; c++)
     {
@@ -1410,8 +1336,8 @@ void CMemory::AlphaROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1437,7 +1363,7 @@ void CMemory::SuperFXROMMap ()
 {
     int c;
     int i;
-    
+
     // Banks 00->3f and 80->bf
     for (c = 0; c < 0x400; c += 16)
     {
@@ -1461,12 +1387,12 @@ void CMemory::SuperFXROMMap ()
 	for (i = c; i < c + 8; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
-    
+
     // Banks 40->7f and c0->ff
     for (c = 0; c < 0x400; c += 16)
     {
@@ -1548,8 +1474,8 @@ void CMemory::SA1ROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1606,7 +1532,7 @@ void CMemory::SA1ROMMap ()
     // Banks 60->6f
     for (c = 0; c < 0x100; c++)
 	SA1_Map [c + 0x600] = SA1_WriteMap [c + 0x600] = (uint8 *) MAP_BWRAM_BITMAP;
-#endif // USE_SA1    
+#endif // USE_SA1
 
     BWRAM = SRAM;
 }
@@ -1640,8 +1566,8 @@ void CMemory::LoROM24MBSMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1670,7 +1596,7 @@ void CMemory::LoROM24MBSMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
+	
 	    MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1731,8 +1657,8 @@ void CMemory::SufamiTurboLoROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1827,8 +1753,8 @@ void CMemory::SRAM512KLoROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1883,8 +1809,8 @@ void CMemory::SRAM1024KLoROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = MemorySpeed [i + 0x800] = 
+	
+	    MemorySpeed [i] = MemorySpeed [i + 0x800] =
 		MemorySpeed [i + 0x400] = MemorySpeed [i + 0xc00] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -1914,7 +1840,7 @@ void CMemory::BSHiROMMap ()
 	BlockIsRAM [c + 5] = BlockIsRAM [c + 0x805] = TRUE;
 	Map [c + 6] = Map [c + 0x806] = (uint8 *) MAP_NONE;
 	Map [c + 7] = Map [c + 0x807] = (uint8 *) MAP_NONE;
-	    
+	
 	for (i = c + 8; i < c + 16; i++)
 	{
 	    Map [i] = Map [i + 0x800] = &ROM [(c << 12) % CalculatedSize];
@@ -1924,8 +1850,8 @@ void CMemory::BSHiROMMap ()
 	for (i = c; i < c + 16; i++)
 	{
 	    int ppu = i & 15;
-	    
-	    MemorySpeed [i] = 
+	
+	    MemorySpeed [i] =
 		MemorySpeed [i + 0x800] = ppu >= 2 && ppu <= 3 ? ONE_CYCLE : SLOW_ONE_CYCLE;
 	}
     }
@@ -2074,13 +2000,13 @@ void CMemory::ApplyROMFixes ()
 	CPU.NMITriggerPoint = 25;
 
     // These games complain if the multi-player adaptor is 'connected'
-    if (strcmp (ROMName, "TETRIS&Dr.MARIO") == 0 || 
-        strcmp (ROMName, "JIGSAW PARTY") == 0 || 
-        strcmp (ROMName, "SUPER PICROSS") == 0 || 
-        strcmp (ROMName, "KIRBY NO KIRA KIZZU") == 0 || 
-        strcmp (ROMName, "BLOCK") == 0 || 
+    if (strcmp (ROMName, "TETRIS&Dr.MARIO") == 0 ||
+        strcmp (ROMName, "JIGSAW PARTY") == 0 ||
+        strcmp (ROMName, "SUPER PICROSS") == 0 ||
+        strcmp (ROMName, "KIRBY NO KIRA KIZZU") == 0 ||
+        strcmp (ROMName, "BLOCK") == 0 ||
         strncmp (ROMName, "SUPER BOMBLISS", 14) == 0 ||
-	strcmp (ROMId, "ABOJ") == 0) 
+	strcmp (ROMId, "ABOJ") == 0)
     {
 	Settings.MultiPlayer5Master = FALSE;
 	Settings.MouseMaster = FALSE;
@@ -2139,7 +2065,7 @@ void CMemory::ApplyROMFixes ()
 	strncmp (ROMId, "Y9 ", 3) == 0 ||
     // Panic Bomber World
 	strncmp (ROMId, "APB", 3) == 0 ||
-	((strncmp (ROMName, "Parlor", 6) == 0 || 
+	((strncmp (ROMName, "Parlor", 6) == 0 ||
           strcmp (ROMName, "HEIWA PARLOR!MINI8") == 0 ||
 	  strncmp (ROMName, "SANKYO Fever! Ì¨°ÊÞ°!", 21) == 0) &&
 	 strcmp (CompanyId, "A0") == 0) ||
@@ -2150,7 +2076,7 @@ void CMemory::ApplyROMFixes ()
 	strcmp (ROMName, "FORTUNE QUEST") == 0 ||
 	strcmp (ROMName, "FISHING TO BASSING") == 0 ||
 	strncmp (ROMName, "TOKYODOME '95BATTLE 7", 21) == 0 ||
-	strcmp (ROMName, "OHMONO BLACKBASS") == 0) 
+	strcmp (ROMName, "OHMONO BLACKBASS") == 0)
     {
 	IAPU.OneCycle = 15;
 		// notaz: strangely enough, these games work properly with my hack enabled
@@ -2158,7 +2084,7 @@ void CMemory::ApplyROMFixes ()
 			ROMAPUEnabled |= 2;
 		CPU.APU_APUExecuting |= 2;
     }
-    
+
     if (strcmp (ROMName, "BATMAN--REVENGE JOKER") == 0)
     {
 	Memory.HiROM = FALSE;
@@ -2173,7 +2099,7 @@ void CMemory::ApplyROMFixes ()
 			  Settings.StarfoxHack;
     Settings.ChuckRock = strcmp (ROMName, "CHUCK ROCK") == 0;
     Settings.Dezaemon = strcmp (ROMName, "DEZAEMON") == 0;
-    
+
     if (strcmp (ROMName, "RADICAL DREAMERS") == 0 ||
 	strcmp (ROMName, "TREASURE CONFLIX") == 0)
     {
@@ -2193,7 +2119,7 @@ void CMemory::ApplyROMFixes ()
 	WriteProtectROM ();
     }
 
-    Settings.H_Max = (SNES_CYCLES_PER_SCANLINE * 
+    Settings.H_Max = (SNES_CYCLES_PER_SCANLINE *
 		      Settings.CyclesPercentage) / 100;
 
 	// A Couple of HDMA related hacks - Lantus
@@ -2212,7 +2138,7 @@ void CMemory::ApplyROMFixes ()
         // Clock Tower
 	strncmp (ROMId, "AJE", 3) == 0)
 		Settings.H_Max = (SNES_CYCLES_PER_SCANLINE * 103) / 100;
-    
+
     if (strcmp (ROMId, "AWVP") == 0 || strcmp (ROMId, "AWVE") == 0 ||
 	strcmp (ROMId, "AWVJ") == 0)
     {
@@ -2235,15 +2161,15 @@ void CMemory::ApplyROMFixes ()
 	Settings.CyclesPercentage == 100)
 		Settings.H_Max = (SNES_CYCLES_PER_SCANLINE * 101) / 100;
 
-    if (strcmp (ROMName, "WILD TRAX") == 0 || 
-	strcmp (ROMName, "YOSSY'S ISLAND") == 0 || 
+    if (strcmp (ROMName, "WILD TRAX") == 0 ||
+	strcmp (ROMName, "YOSSY'S ISLAND") == 0 ||
 	strcmp (ROMName, "YOSHI'S ISLAND") == 0)
 	CPU.TriedInterleavedMode2 = TRUE;
 
     // Start Trek: Deep Sleep 9
     if (strncmp (ROMId, "A9D", 3) == 0 && Settings.CyclesPercentage == 100)
 	Settings.H_Max = (SNES_CYCLES_PER_SCANLINE * 110) / 100;
-    
+
     Settings.APURAMInitialValue = 0xff;
 
     if (strcmp (ROMName, "·­³Ô¸¥Ò¶ÞÐÃÝ¾²") == 0 ||
@@ -2447,14 +2373,14 @@ void CMemory::ApplyROMFixes ()
 #endif // USE_SA1
 
     // Additional game fixes by sanmaiwashi ...
-    if (strcmp (ROMName, "SFX Å²Ä¶ÞÝÀÞÑÓÉ¶ÞÀØ 1") == 0) 
+    if (strcmp (ROMName, "SFX Å²Ä¶ÞÝÀÞÑÓÉ¶ÞÀØ 1") == 0)
     {
 	bytes0x2000 [0xb18] = 0x4c;
 	bytes0x2000 [0xb19] = 0x4b;
 	bytes0x2000 [0xb1a] = 0xea;
     }
 
-    if (strcmp (ROMName, "GOGO ACKMAN3") == 0 || 
+    if (strcmp (ROMName, "GOGO ACKMAN3") == 0 ||
 	strcmp (ROMName, "HOME ALONE") == 0)
     {
 	// Banks 00->3f and 80->bf
@@ -2503,7 +2429,7 @@ void CMemory::ApplyROMFixes ()
 	    Map [0x408 + c] = ROM - 0x8000;
     }
 
-    if (strcmp (ROMName, "½°Êß°Ì§Ð½À") == 0 || 
+    if (strcmp (ROMName, "½°Êß°Ì§Ð½À") == 0 ||
 	strcmp (ROMName, "½°Êß°Ì§Ð½À 2") == 0 ||
 	strcmp (ROMName, "ZENKI TENCHIMEIDOU") == 0 ||
 	strcmp (ROMName, "GANBA LEAGUE") == 0)
@@ -2624,7 +2550,7 @@ static long ReadInt (FILE *f, unsigned nbytes)
     while (nbytes--)
     {
 	int c = fgetc(f);
-	if (c == EOF) 
+	if (c == EOF)
 	    return -1;
 	v = (v << 8) | (c & 0xFF);
     }
@@ -2664,7 +2590,7 @@ void CMemory::CheckForIPSPatch (const char *rom_filename, bool8_32 header,
 	if (ofs == -1)
 	    goto err_eof;
 
-	if (ofs == IPS_EOF) 
+	if (ofs == IPS_EOF)
 	    break;
 
 	ofs -= offset;
@@ -2682,7 +2608,7 @@ void CMemory::CheckForIPSPatch (const char *rom_filename, bool8_32 header,
 	    while (len--)
 	    {
 		rchar = fgetc (patch_file);
-		if (rchar == EOF) 
+		if (rchar == EOF)
 		    goto err_eof;
 		ROM [ofs++] = (uint8) rchar;
             }
@@ -2692,18 +2618,18 @@ void CMemory::CheckForIPSPatch (const char *rom_filename, bool8_32 header,
 	else
 	{
 	    rlen = ReadInt (patch_file, 2);
-	    if (rlen == -1) 
+	    if (rlen == -1)
 		goto err_eof;
 
 
 	    rchar = fgetc (patch_file);
-	    if (rchar == EOF) 
+	    if (rchar == EOF)
 		goto err_eof;
 
 	    if (ofs + rlen > MAX_ROM_SIZE)
 		goto err_eof;
 
-	    while (rlen--) 
+	    while (rlen--)
 		ROM [ofs++] = (uint8) rchar;
 
 	    if (ofs > rom_size)
@@ -2722,7 +2648,7 @@ void CMemory::CheckForIPSPatch (const char *rom_filename, bool8_32 header,
     return;
 
 err_eof:
-    if (patch_file) 
+    if (patch_file)
 	fclose (patch_file);
 }
 

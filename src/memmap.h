@@ -4,7 +4,7 @@
  * (c) Copyright 1996 - 2001 Gary Henderson (gary.henderson@ntlworld.com) and
  *                           Jerremy Koot (jkoot@snes9x.com)
  *
- * Super FX C emulator code 
+ * Super FX C emulator code
  * (c) Copyright 1997 - 1999 Ivar (ivar@snes9x.com) and
  *                           Gary Henderson.
  * Super FX assembler emulator code (c) Copyright 1998 zsKnight and _Demo_.
@@ -43,36 +43,6 @@
 
 #include "snes9x.h"
 
-#ifdef FAST_LSB_WORD_ACCESS
-#define READ_WORD(s) (*(uint16 *) (s))
-#define READ_DWORD(s) (*(uint32 *) (s))
-#define WRITE_WORD(s, d) *(uint16 *) (s) = (d)
-#define WRITE_DWORD(s, d) *(uint32 *) (s) = (d)
-#define READ_3WORD(s) ((*(uint32 *) (s)) & 0x00FFFFFF)
-#define WRITE_3WORD(s, d) *(uint16 *) (s) = (uint16) (d), \
-		          *((uint8 *) (s) + 2) = (uint8) ((d) >> 16)
-#else
-#define READ_WORD(s) ( *(uint8 *) (s) |\
-		      (*((uint8 *) (s) + 1) << 8))
-#define READ_DWORD(s) ( *(uint8 *) (s) |\
-		       (*((uint8 *) (s) + 1) << 8) |\
-		       (*((uint8 *) (s) + 2) << 16) |\
-		       (*((uint8 *) (s) + 3) << 24))
-#define WRITE_WORD(s, d) *(uint8 *) (s) = (d), \
-                         *((uint8 *) (s) + 1) = (d) >> 8
-#define WRITE_DWORD(s, d) *(uint8 *) (s) = (uint8) (d), \
-                          *((uint8 *) (s) + 1) = (uint8) ((d) >> 8),\
-                          *((uint8 *) (s) + 2) = (uint8) ((d) >> 16),\
-                          *((uint8 *) (s) + 3) = (uint8) ((d) >> 24)
-#define WRITE_3WORD(s, d) *(uint8 *) (s) = (uint8) (d), \
-                          *((uint8 *) (s) + 1) = (uint8) ((d) >> 8),\
-                          *((uint8 *) (s) + 2) = (uint8) ((d) >> 16)
-#define READ_3WORD(s) ( *(uint8 *) (s) |\
-                       (*((uint8 *) (s) + 1) << 8) |\
-                       (*((uint8 *) (s) + 2) << 16))
-                          
-#endif
-
 #define MEMMAP_BLOCK_SIZE (0x1000)
 #define MEMMAP_NUM_BLOCKS (0x1000000 / MEMMAP_BLOCK_SIZE)
 #define MEMMAP_BLOCKS_PER_BANK (0x10000 / MEMMAP_BLOCK_SIZE)
@@ -89,13 +59,13 @@ public:
     bool8_32 Init ();
     void  Deinit ();
     void  FreeSDD1Data ();
-    
+
     void WriteProtectROM ();
     void FixROMSpeed ();
     void MapRAM ();
     void MapExtraRAM ();
     char *Safe (const char *);
-    
+
     void LoROMMap ();
     void LoROM24MBSMap ();
     void SRAM512KLoROMMap ();
@@ -113,7 +83,7 @@ public:
     void ApplyROMFixes ();
     void CheckForIPSPatch (const char *rom_filename, bool8_32 header,
 			   int32 &rom_size);
-    
+
     const char *TVStandard ();
     const char *Speed ();
     const char *StaticRAMSize ();
@@ -125,14 +95,14 @@ public:
     const char *ROMID ();
     const char *CompanyID ();
 	uint32 caCRC32(uint8 *array, uint32 size, register uint32 crc32= 0xFFFFFFFF);	
-    
+
     enum {
 	MAP_PPU, MAP_CPU, MAP_DSP, MAP_LOROM_SRAM, MAP_HIROM_SRAM,
 	MAP_NONE, MAP_DEBUG, MAP_C4, MAP_BWRAM, MAP_BWRAM_BITMAP,
 	MAP_BWRAM_BITMAP2, MAP_SA1RAM, MAP_LAST
     };
     enum { MAX_ROM_SIZE = 0x600000 };
-    
+
     uint8 *RAM;
     uint8 *ROM;
     uint8 *VRAM;

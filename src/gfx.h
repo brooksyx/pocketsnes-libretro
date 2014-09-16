@@ -4,7 +4,7 @@
  * (c) Copyright 1996 - 2001 Gary Henderson (gary.henderson@ntlworld.com) and
  *                           Jerremy Koot (jkoot@snes9x.com)
  *
- * Super FX C emulator code 
+ * Super FX C emulator code
  * (c) Copyright 1997 - 1999 Ivar (ivar@snes9x.com) and
  *                           Gary Henderson.
  * Super FX assembler emulator code (c) Copyright 1998 zsKnight and _Demo_.
@@ -92,7 +92,7 @@ struct SGFX{
     int	   OBJList [129];
     uint32 Sizes [129];
     int    VPositions [129];
-    
+
 #ifdef GFX_MULTI_FORMAT
     uint32 PixelFormat;
     uint32 (*BuildPixel) (uint32 R, uint32 G, uint32 B);
@@ -124,7 +124,7 @@ struct SBG
     uint32 StartPalette;
     uint32 PaletteShift;
     uint32 PaletteMask;
-    
+
     uint8 *Buffer;
     uint8 *Buffered;
     bool8  DirectColourMode;
@@ -146,16 +146,8 @@ extern uint32 even_high [4][16];
 extern uint32 even_low [4][16];
 extern SBG BG;
 extern uint32 DirectColourMaps [8][256];
-
-//extern uint8 add32_32 [32][32];
-//extern uint8 add32_32_half [32][32];
-//extern uint8 sub32_32 [32][32];
-//extern uint8 sub32_32_half [32][32];
 extern uint8 mul_brightness [16][32];
 
-// Could use BSWAP instruction on Intel port...
-//#define SWAP_DWORD(dw) dw = ((dw & 0xff) << 24) | ((dw & 0xff00) << 8) | \
-//		            ((dw & 0xff0000) >> 8) | ((dw & 0xff000000) >> 24)
 // by Harald Kipp, from http://www.ethernut.de/en/documents/arm-inline-asm.html
 #define SWAP_DWORD(val) \
     __asm__ __volatile__ ( \
@@ -168,25 +160,8 @@ extern uint8 mul_brightness [16][32];
         : "r3", "cc" \
     );
 
-
-#ifdef FAST_LSB_WORD_ACCESS
-#define READ_2BYTES(s) (*(uint16 *) (s))
-#define WRITE_2BYTES(s, d) *(uint16 *) (s) = (d)
-#else
-#ifdef LSB_FIRST
-#define READ_2BYTES(s) (*(uint16 *) (s))
-#define WRITE_2BYTES(s, d) *(uint16 *) (s) = (d)
-
-//#define READ_2BYTES(s) (*(uint8 *) (s) | (*((uint8 *) (s) + 1) << 8))
-//#define WRITE_2BYTES(s, d) *(uint8 *) (s) = (d), \
-//			   *((uint8 *) (s) + 1) = (d) >> 8
-#else  // else MSB_FISRT
-#define READ_2BYTES(s) (*(uint8 *) (s) | (*((uint8 *) (s) + 1) << 8))
-#define WRITE_2BYTES(s, d) *(uint8 *) (s) = (d), \
-			   *((uint8 *) (s) + 1) = (d) >> 8
-#endif // LSB_FIRST
-#endif // i386
-
+#define READ_2BYTES(s) READ_WORD(s)
+#define WRITE_2BYTES(s, d) WRITE_WORD(s, d)
 #define SUB_SCREEN_DEPTH 0
 #define MAIN_SCREEN_DEPTH 32
 
@@ -200,7 +175,7 @@ GFX.X2 [((((C1) & RGB_REMOVE_LOW_BITS_MASK) + \
 (GFX.X2 [((((C1) & RGB_REMOVE_LOW_BITS_MASK) + \
 	  ((C2) & RGB_REMOVE_LOW_BITS_MASK)) >> 1) + \
 	 ((C1) & (C2) & RGB_LOW_BITS_MASK)] | \
- (((C1) ^ (C2)) & RGB_LOW_BITS_MASK))	   
+ (((C1) ^ (C2)) & RGB_LOW_BITS_MASK))	
 #endif
 
 #define COLOR_ADD1_2(C1, C2) \
@@ -223,7 +198,7 @@ GFX.ZERO_OR_X2 [(((C1) | RGB_HI_BITS_MASKx2) - \
 GFX.ZERO [(((C1) | RGB_HI_BITS_MASKx2) - \
 	   ((C2) & RGB_REMOVE_LOW_BITS_MASK)) >> 1]
 
-typedef void (*NormalTileRenderer) (uint32 Tile, uint32 Offset, 
+typedef void (*NormalTileRenderer) (uint32 Tile, uint32 Offset,
 				    uint32 StartLine, uint32 LineCount);
 typedef void (*ClippedTileRenderer) (uint32 Tile, uint32 Offset,
 				     uint32 StartPixel, uint32 Width,

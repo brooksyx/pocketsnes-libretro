@@ -4,7 +4,7 @@
  * (c) Copyright 1996 - 2001 Gary Henderson (gary.henderson@ntlworld.com) and
  *                           Jerremy Koot (jkoot@snes9x.com)
  *
- * Super FX C emulator code 
+ * Super FX C emulator code
  * (c) Copyright 1997 - 1999 Ivar (ivar@snes9x.com) and
  *                           Gary Henderson.
  * Super FX assembler emulator code (c) Copyright 1998 zsKnight and _Demo_.
@@ -45,60 +45,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#ifdef __WIN32__
-#include "..\wsnes9x.h"
-#include "..\zlib\zlib.h"
-#endif
-
 #include "port.h"
 #include "65c816.h"
 #include "messages.h"
-
-#if defined(USE_GLIDE) && !defined(GFX_MULTI_FORMAT)
-#define GFX_MULTI_FORMAT
-#endif
+#include "../libretro/memstream.h"
 
 #define ROM_NAME_LEN 23
 
-#ifdef __LIBRETRO__
-#include "../libretro/memstream.h"
 #define STREAM memstream_t *
 #define READ_STREAM(p, l, s)     memstream_read(s, p, l)
 #define WRITE_STREAM(p, l, s)    memstream_write(s, p, l)
 #define OPEN_STREAM(f, m)        memstream_open()
 #define CLOSE_STREAM(s)          memstream_close(s)
-#define SEEK_STREAM(p,r,s)   memstream_seek(p,r,s)
-#elif defined(ZLIB)
-//#ifndef __WIN32__
-#include "zlib.h"
-//#endif
-#define STREAM gzFile
-#define READ_STREAM(p,l,s) gzread (s,p,l)
-#define WRITE_STREAM(p,l,s) gzwrite (s,p,l)
-#define OPEN_STREAM(f,m) gzopen (f,m)
-#define CLOSE_STREAM(s) gzclose (s)
-#define SEEK_STREAM(p,r,s) gzseek(s,p,r)
-#else
-#ifdef __GP32__
-#define STREAM long * //F_HANDLE * 
-#define READ_STREAM(p,l,s) gp32_fread ((unsigned char*)p,(long)l,s)
-#define WRITE_STREAM(p,l,s) gp32_fwrite ((unsigned char*)p,(long)l,s)
-#define OPEN_STREAM(f,m) gp32_fopen ((char*)f,(char*)m)
-#define CLOSE_STREAM(s) gp32_fclose (s)
-#define SEEK_STREAM(p,r,s) gp32_fseek(p,r,s)
-
-#else
-#define STREAM FILE *
-#define READ_STREAM(p,l,s) fread (p,1,l,s)
-#define WRITE_STREAM(p,l,s) fwrite (p,1,l,s)
-#define OPEN_STREAM(f,m) fopen (f,m)
-#define CLOSE_STREAM(s) fclose (s)
-#define SEEK_STREAM(p,r,s) fseek(s,p,r)
-#define FROM_CURRENT SEEK_CUR
-#endif
-#endif
-
+#define SEEK_STREAM(p,r,s)       memstream_seek(p,r,s)
 
 /* SNES screen width and height */
 #define SNES_WIDTH		256
@@ -113,15 +72,15 @@
 #define SPC700_TO_65C816_RATIO	2
 #define AUTO_FRAMERATE		200
 
-#define PPU_IGNORE_FIXEDCOLCHANGES 			(1<<0)
-#define PPU_IGNORE_WINDOW					(1<<1)
-#define PPU_IGNORE_ADDSUB					(1<<2)
-#define PPU_IGNORE_PALWRITE				 	(1<<3)
-#define GFX_IGNORE_OBJ				 		(1<<4)
-#define GFX_IGNORE_BG0				 		(1<<5)
-#define GFX_IGNORE_BG1				 		(1<<6)
-#define GFX_IGNORE_BG2				 		(1<<7)
-#define GFX_IGNORE_BG3				 		(1<<8)
+#define PPU_IGNORE_FIXEDCOLCHANGES 	(1<<0)
+#define PPU_IGNORE_WINDOW		(1<<1)
+#define PPU_IGNORE_ADDSUB		(1<<2)
+#define PPU_IGNORE_PALWRITE		(1<<3)
+#define GFX_IGNORE_OBJ			(1<<4)
+#define GFX_IGNORE_BG0			(1<<5)
+#define GFX_IGNORE_BG1			(1<<6)
+#define GFX_IGNORE_BG2			(1<<7)
+#define GFX_IGNORE_BG3			(1<<8)
 
 // NTSC master clock signal 21.47727MHz
 // PPU: master clock / 4
@@ -169,23 +128,23 @@ enum {
     SNES_MOUSE_SWAPPED,
     SNES_MOUSE,
     SNES_SUPERSCOPE,
-	SNES_JUSTIFIER,
-	SNES_JUSTIFIER_2,
+    SNES_JUSTIFIER,
+    SNES_JUSTIFIER_2,
     SNES_MAX_CONTROLLER_OPTIONS
 };
 
-#define DEBUG_MODE_FLAG	    (1 << 0)
-#define TRACE_FLAG			(1 << 1)
-#define SINGLE_STEP_FLAG    (1 << 2)
-#define BREAK_FLAG			(1 << 3)
-#define SCAN_KEYS_FLAG	    (1 << 4)
-#define SAVE_SNAPSHOT_FLAG  (1 << 5)
-#define DELAYED_NMI_FLAG    (1 << 6)
-#define NMI_FLAG			(1 << 7)
-#define PROCESS_SOUND_FLAG  (1 << 8)
-#define FRAME_ADVANCE_FLAG  (1 << 9)
-#define DELAYED_NMI_FLAG2   (1 << 10)
-#define IRQ_PENDING_FLAG    (1 << 11)
+#define DEBUG_MODE_FLAG		(1 << 0)
+#define TRACE_FLAG		(1 << 1)
+#define SINGLE_STEP_FLAG	(1 << 2)
+#define BREAK_FLAG		(1 << 3)
+#define SCAN_KEYS_FLAG		(1 << 4)
+#define SAVE_SNAPSHOT_FLAG	(1 << 5)
+#define DELAYED_NMI_FLAG	(1 << 6)
+#define NMI_FLAG		(1 << 7)
+#define PROCESS_SOUND_FLAG	(1 << 8)
+#define FRAME_ADVANCE_FLAG	(1 << 9)
+#define DELAYED_NMI_FLAG2	(1 << 10)
+#define IRQ_PENDING_FLAG	(1 << 11)
 
 #ifdef VAR_CYCLES
 #define ONE_CYCLE 6
@@ -242,7 +201,7 @@ struct SCPUState{
 	uint32	_ARM_asm_reserved_1;	//88  to stock current jmp table
     bool8  TriedInterleavedMode2;	//92
     bool8  _ARM_asm_padding1[3];	//93
-    
+
     uint8*	Memory_Map;				//96
     uint8*	Memory_WriteMap;		//100
     uint32*	Memory_MemorySpeed;		//104
@@ -257,7 +216,7 @@ struct SCPUState{
   	volatile int32	APU_Cycles;				//140 notaz
 	void *DSPGet;
 	void *DSPSet;
-	int32 rstatus; 
+	int32 rstatus;
 };
 
 
@@ -326,7 +285,7 @@ struct SSettings{
     bool8  SuperScope;
     bool8  SRTC;
     uint32 ControllerOption;
-    
+
     bool8  ShutdownMaster;
     bool8  MultiPlayer5Master;
     bool8  SuperScopeMaster;
@@ -356,7 +315,7 @@ struct SSettings{
 //    bool8  NextAPUEnabled;
     uint8  AltSampleDecode;
     bool8  FixFrequency;
-    
+
     // Graphics options
     bool8  SixteenBit;
     bool8  Transparency;
@@ -384,7 +343,7 @@ struct SSettings{
     uint32 TurboSkipFrames;
     uint32 AutoMaxSkipFrames;
 	uint32 os9x_hack;
-    
+
 // Fixes for individual games
     uint32 StrikeGunnerOffsetHack;
     bool8  ChuckRock;
@@ -396,7 +355,7 @@ struct SSettings{
     bool8  DaffyDuck;
     uint8  APURAMInitialValue;
     bool8  SDD1Pack;
-    
+
 	bool8 asmspc700;
 	bool8 SpeedHacks;
 #ifdef __WIN32__
