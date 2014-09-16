@@ -466,7 +466,8 @@ bool retro_load_game(const struct retro_game_info *game)
 
    S9xReset();
    Settings.asmspc700 = true;
-   CPU.APU_APUExecuting = Settings.APUEnabled = TRUE;
+   CPU.APU_APUExecuting = Settings.APUEnabled = 3;
+   //CPU.APU_APUExecuting = Settings.APUEnabled = TRUE;
    Settings.SixteenBitSound = true;
    so.stereo = Settings.Stereo;
    so.playback_rate = Settings.SoundPlaybackRate;
